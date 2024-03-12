@@ -1,0 +1,273 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Yield..Create
+Gui.F_Yield..Caption("Production Yield Report [APAC]")
+Gui.F_Yield..Size(10215,9690)
+Gui.F_Yield..MinX(0)
+Gui.F_Yield..MinY(0)
+Gui.F_Yield..Position(0,0)
+Gui.F_Yield..FontSize(9)
+Gui.F_Yield..BackColor(-2147483633)
+Gui.F_Yield..MousePointer(0)
+Gui.F_Yield..Event(UnLoad,Unload)
+Gui.F_Yield.framePart.Create(Frame)
+Gui.F_Yield.framePart.Size(9780,8220)
+Gui.F_Yield.framePart.Position(75,840)
+Gui.F_Yield.framePart.Caption("Part Number Selection")
+Gui.F_Yield.framePart.FontSize(9)
+Gui.F_Yield.GsGCPart.Create(GsGridControl)
+Gui.F_Yield.GsGCPart.Size(9570,7830)
+Gui.F_Yield.GsGCPart.Position(75,255)
+Gui.F_Yield.GsGCPart.Parent("framePart")
+Gui.F_Yield.cmdExport.Create(Button)
+Gui.F_Yield.cmdExport.Size(2280,675)
+Gui.F_Yield.cmdExport.Position(60,75)
+Gui.F_Yield.cmdExport.Caption("Export ")
+Gui.F_Yield.cmdExport.FontSize(9)
+Gui.F_Yield.cmdExport.Event(Click,cmdRefresh_Click)
+Gui.F_Yield.chkHist.Create(CheckBox)
+Gui.F_Yield.chkHist.Size(1875,360)
+Gui.F_Yield.chkHist.Position(2445,90)
+Gui.F_Yield.chkHist.Caption("Include history")
+Gui.F_Yield.chkHist.FontSize(9)
+Gui.F_Yield.chkHist.Event(Click,LoadPart)
+Gui.F_Yield.dtpFrom.Create(DatePicker)
+Gui.F_Yield.dtpFrom.Size(1935,285)
+Gui.F_Yield.dtpFrom.Position(4365,315)
+Gui.F_Yield.lbl1.Create(Label,"From Date",True,1935,255,0,4320,105,True,0,"Arial",9,-2147483633,0)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+V.Local.bExist.Declare
+V.Local.dFrom.Declare(Date)
+V.Local.sIcon.Declare
+
+F.Automation.MSExcel.CheckPresence(V.Local.bExist)
+
+'Check if Excel is present in the workstation
+F.Intrinsic.Control.If(V.Local.bExist,=,True)
+	F.ODBC.Connection!Conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+	
+	F.Intrinsic.String.Build("{0}\ART\GSS2.ico",V.Caller.GlobalDir,V.Local.sIcon)
+	Gui.F_Yield..Icon(V.Local.sIcon)
+	
+	Gui.F_Yield.framePart.Anchor(15)
+	Gui.F_Yield.GsGCPart.Anchor(15)
+	
+	F.Intrinsic.Control.CallSub(loadpart)
+	F.Intrinsic.Date.DateAdd("YYYY",-1,V.Ambient.Date,V.Local.dFrom)
+	Gui.F_Yield.dtpFrom.Value(V.Local.dFrom)
+	
+	Gui.F_Yield..Show
+F.Intrinsic.Control.Else
+	F.Intrinsic.UI.Msgbox("MS Excel is not found in this computer. Program will terminate","Product Yield Report [APAC]")
+	F.Intrinsic.Control.End
+
+F.Intrinsic.Control.EndIf
+
+Program.Sub.Main.End
+
+Program.Sub.LoadPart.Start
+F.Intrinsic.Control.If(V.DataTable.dtPart.Exists,=,True)
+	F.Data.DataTable.Close("dtPart")
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.UI.InvokeWaitDialog("Loading the list of manufactured parts from work order data","Product Yield Report [APAC]")
+
+Gui.F_Yield.GsGCPart.Visible(False)
+'Load distinct part number from JOB_HEADER and JOB_HIST_MAST
+F.Data.DataTable.CreateFromSQL("dtPart","Conx","select distinct(Part) as Part, Description from v_job_header where part <> '' and date_closed <> '1900-01-01' order by part",True)
+F.Intrinsic.Control.If(V.Screen.F_Yield!chkHist.Value,=,1)
+	F.Data.DataTable.CreateFromSQL("dtPartHist","Conx","select distinct(Part) as Part, Description from v_job_hist_mast where part <> ''  and date_closed <> '1900-01-01' order by part",True)
+	F.Data.DataTable.Merge("dtPartHist","dtPart",True,1)
+	F.Data.DataTable.Close("dtPartHist")
+F.Intrinsic.Control.EndIf
+F.Data.DataTable.AddColumn("dtPart","Selected",Boolean,False)
+F.Data.DataView.Create("dtPart","dvPart",22,"","Part ASC")
+
+Gui.F_Yield.GsGCPart.AddGridviewFromDataview("gvPart","dtPart","dvPart")
+Gui.F_Yield.GsGCPart.MainView("gvPart")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Part","HeaderHAlignment","Center")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Description","HeaderHAlignment","Center")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Selected","ShowCaption",False)
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Part","Fixed","Left")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Selected","Fixed","Right")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Selected","ReadOnly",False)
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Selected","AllowEdit",True)
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Part","MinWidth","120")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Description","MinWidth","200")
+Gui.F_Yield.GsGCPart.SetColumnProperty("gvPart","Selected","MinWidth","40")
+Gui.F_Yield.GsGCPart.Visible(True)
+
+F.Intrinsic.UI.CloseWaitDialog
+Program.Sub.LoadPart.End
+
+Program.Sub.Unload.Start
+F.Intrinsic.Control.If(V.DataTable.dtYield.Exists,=,True)
+	F.Data.DataTable.Close("dtYield")
+F.Intrinsic.Control.EndIf
+F.Data.DataView.Close("dtPart","dvPart")
+F.Data.DataTable.Close("dtPart")
+F.ODBC.Connection!Conx.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.cmdRefresh_Click.Start
+V.Local.dFrom.Declare(Date)
+V.Local.fAverage.Declare
+V.Local.fGood.Declare
+V.Local.fPiece.Declare
+V.Local.fRework.Declare
+V.Local.fScrap.Declare
+V.Local.fYield.Declare
+V.Local.i1.Declare
+V.Local.i2.Declare
+V.Local.i3.Declare
+V.Local.i4.Declare
+V.Local.iIndex.Declare
+V.Local.iMax.Declare
+V.Local.sClosedDate.Declare
+V.Local.sExcelFile.Declare
+V.Local.sExcelFileDetail.Declare
+V.Local.sExcelFileRow.Declare
+V.Local.sFileName.Declare
+V.Local.sFilePath.Declare
+V.Local.sFilter.Declare
+V.Local.sMessage.Declare
+V.Local.sPart.Declare
+V.Local.sRev.Declare
+V.Local.sRet.Declare
+V.Local.sSQL.Declare
+V.Local.sTable.Declare
+V.Local.sWO.Declare
+
+'Check if at least 1 part is selected
+F.Data.DataTable.Select("dtPart","Selected = True",V.Local.sRet)
+F.Intrinsic.Control.If(V.Local.sRet,=,"***NORETURN***")
+	F.Intrinsic.UI.Msgbox("Please select at least 1 part number to continue","Product Yield Report [APAC]")
+F.Intrinsic.Control.Else
+	'Display the Save Dialog
+	F.Intrinsic.UI.ShowSaveFileDialog("",".xlsx|",V.Local.sFilePath)
+	F.Intrinsic.Control.If(V.Local.sFilePath,<>,"***CANCEL***")
+		F.Intrinsic.UI.InvokeWaitDialog("Generating Yield Report in Excel","Product Yield Report [APAC]")
+		F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+		F.Intrinsic.Math.Add(V.Local.sRet.UBound,1,V.Local.iMax)
+		V.Local.dFrom.Set(V.Screen.F_Yield!dtpFrom.Value)
+		
+		F.Intrinsic.String.Concat(V.Local.sFilePath,".xlsx",V.Local.sFileName)
+		
+		'Column titles
+		V.Local.sExcelFile.Set("Part Number*!*Thickness/Issue*!*Issue*!*Part Description*!*WO Number*!*Qty Prod*!*Qty Good*!*Qty Scrap*!*Yield*!*Average*!*Remark")
+		F.Intrinsic.Control.For(V.Local.i1,0,V.Local.sRet.UBound,1)
+			F.Intrinsic.Math.Add(V.Local.i1,1,V.Local.iIndex)
+			F.Intrinsic.String.Build("Retrieving work order info for {0} ({1})",V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Description!FieldValTrim,V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Part!FieldValTrim,V.Local.sMessage)
+			F.Intrinsic.UI.ChangeWaitStatus(V.Local.sMessage,V.Local.iIndex,1,V.Local.iMax)
+			V.Local.sPart.Set(V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Part!FieldValTrim)
+			F.Intrinsic.String.Mid(V.Local.sPart,17,V.Local.sRev)
+			F.Intrinsic.String.Left(V.Local.sPart,17,V.Local.sPart)
+			'Retrieve related WO
+			F.Intrinsic.String.Build("select Job, Suffix,date_closed as ClosedDate,qty_order as Prod,  0 as History from v_job_header where part = '{0}' and qty_order > 0 and date_opened >= '{1}'",V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Part!FieldValTrim,V.Local.dFrom.PervasiveDate,V.Local.sSQL)
+			F.Data.DataTable.CreateFromSQL("dtWO","Conx",V.Local.sSQL)
+			'Include WO history if checkbox is selected
+			F.Intrinsic.Control.If(V.Screen.F_Yield!chkHist.Value,=,1)
+				F.Intrinsic.String.Build("select Job, Suffix,date_closed as ClosedDate, qty_order as Prod, 1 as History from v_job_hist_mast where part = '{0}' and qty_order > 0 and date_opened >= '{1}'",V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Part!FieldValTrim,V.Local.dFrom.PervasiveDate,V.Local.sSQL)
+				F.Data.DataTable.CreateFromSQL("dtWOHist","Conx",V.Local.sSQL)
+				F.Data.DataTable.Merge("dtWOHist","dtWO",True,1)
+				F.Data.DataTable.Close("dtWOHist")
+			F.Intrinsic.Control.EndIf
+			F.Data.DataTable.AddColumn("dtWO","Yield",Float)
+			
+			V.Local.sExcelFileDetail.Set("")
+			F.Intrinsic.Control.For(V.Local.i2,0,V.DataTable.dtWO.RowCount--,1)
+				'Retrieve good pieces from job detail
+				F.Intrinsic.Control.If(V.DataTable.dtWO(V.Local.i2).History!FieldValLong,=,0)
+					'Current WO
+					V.Local.sTable.Set("v_job_detail")
+				F.Intrinsic.Control.Else
+					'WO History
+					V.Local.sTable.Set("v_job_hist_dtl")
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.String.Build("select sum(pieces_compltd) from {0} where job = '{1}' and suffix = '{2}' and seq = '999999'",V.Local.sTable.Trim,V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim,V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,V.Local.sSQL)
+				F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSQL,V.Local.fGood)
+				F.Intrinsic.Math.Add(V.Local.fGood,0,V.Local.fGood)
+				'Calculate scrap and yield
+				F.Intrinsic.String.Format(V.DataTable.dtWO(V.Local.i2).ClosedDate!FieldVal,"YYYYMMDD",V.Local.sClosedDate)
+				F.Intrinsic.Control.If(V.Local.sClosedDate.Trim,=,"19000101")
+					'Open WO
+					F.Intrinsic.String.Build("select sum(pieces_scrap) from {0} where job = '{1}' and suffix = '{2}' and seq < '900000'",V.Local.sTable.Trim,V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim,V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,V.Local.sSQL)
+					F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSQL,V.Local.fScrap)
+					F.Intrinsic.Math.Add(V.Local.fScrap,0,V.Local.fScrap)
+					F.Intrinsic.Control.If(V.Local.fScrap,>,0)
+						'There's scrap quantity, check quality table to see if there's any return to WO for rework
+						F.Intrinsic.String.Build("select distinct(seq) as Seq from {0} where job = '{1}' and suffix = '{2}' and seq < '900000' and pieces_scrap > 0",V.Local.sTable.Trim,V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim,V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,V.Local.sSQL)
+						F.Data.DataTable.CreateFromSQL("dtScrap","Conx",V.Local.sSQL)
+						F.Data.DataTable.AddColumn("dtScrap","Rework",Float)
+						F.Intrinsic.Control.For(V.Local.i3,0,V.DataTable.dtScrap.RowCount--,1)
+							F.Intrinsic.String.Build("select control_number as NCMR from v_quality where job = '{0}' and suffix = '{1}' and sequence = '{2}'",V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim,V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,V.DataTable.dtScrap(V.Local.i3).Seq!FieldValTrim,V.Local.sSQL)
+							F.Data.DataTable.CreateFromSQL("dtQuality","Conx",V.Local.sSQL)
+							F.Intrinsic.Control.If(V.DataTable.dtQuality.RowCount,>,0)
+								V.Local.fRework.Set(0)
+								F.Intrinsic.Control.For(V.Local.i4,0,V.DataTable.dtQuality.RowCount--,1)
+									F.Intrinsic.String.Build("select sum(qty_disposed) from v_quality_disp where control_number = '{0}' and disposition_action = 'Rework on Same WO, Rework Seq'",V.DataTable.dtQuality(V.Local.i4).NCMR!FieldValTrim,V.Local.sSQL)
+									F.ODBC.Connection!Conx.ExecuteAndReturn(V.Local.sSQL,V.Local.fPiece)
+									F.Intrinsic.Math.Add(V.Local.fPiece,0,V.Local.fPiece)
+									F.Intrinsic.Math.Add(V.Local.fRework,V.Local.fPiece,V.Local.fRework)
+								F.Intrinsic.Control.Next(V.Local.i4)
+							F.Intrinsic.Control.Else
+								V.Local.fRework.Set(0)
+							F.Intrinsic.Control.EndIf
+							F.Data.DataTable.SetValue("dtScrap",V.Local.i3,"Rework",V.Local.fRework)
+							F.Data.DataTable.Close("dtQuality")
+						F.Intrinsic.Control.Next(V.Local.i3)
+						F.Data.DataTable.Compute("dtScrap","SUM(Rework)","",V.Local.fRework)
+						F.Data.DataTable.Close("dtScrap")
+						F.Intrinsic.Math.Sub(V.Local.fScrap,V.Local.fRework,V.Local.fScrap)
+					F.Intrinsic.Control.EndIf
+				F.Intrinsic.Control.Else
+					'Closed WO
+					F.Intrinsic.Control.If(V.Local.fGood,<=,V.DataTable.dtWO(V.Local.i2).Prod!FieldVal)
+					F.Intrinsic.Control.AndIf(V.Local.fGood,>,0)
+						F.Intrinsic.Math.Sub(V.DataTable.dtWO(V.Local.i2).Prod!FieldVal,V.Local.fGood,V.Local.fScrap)
+					F.Intrinsic.Control.Else
+						V.Local.fScrap.Set(0)
+					F.Intrinsic.Control.EndIf
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.Math.Div(V.Local.fGood,V.DataTable.dtWO(V.Local.i2).Prod!FieldVal,V.Local.fYield)
+				F.Intrinsic.Math.Mult(V.Local.fYield,100,V.Local.fYield)
+				F.Intrinsic.Math.Round(V.Local.fYield,2,V.Local.fYield)
+				'Build excel row
+				F.Intrinsic.Control.If(V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,=,"")
+					V.Local.sWO.Set(V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.String.Build("{0}-{1}",V.DataTable.dtWO(V.Local.i2).Job!FieldValTrim,V.DataTable.dtWO(V.Local.i2).Suffix!FieldValTrim,V.Local.sWO)
+				F.Intrinsic.Control.EndIf
+				F.Intrinsic.String.Build("*!**!**!**!*{0}*!*{1}*!*{2}*!*{3}*!*{4}*!**!*",V.Local.sWO,V.DataTable.dtWO(V.Local.i2).Prod!FieldVal,V.Local.fGood,V.Local.fScrap,V.Local.fYield,V.Local.sExcelFileRow)
+				F.Intrinsic.Control.If(V.Local.sExcelFileDetail.Trim,=,"")
+					V.Local.sExcelFileDetail.Set(V.Local.sExcelFileRow)
+				F.Intrinsic.Control.Else
+					F.Intrinsic.String.Build("{0}$!${1}",V.Local.sExcelFileDetail,V.Local.sExcelFileRow,V.Local.sExcelFileDetail)
+				F.Intrinsic.Control.EndIf
+				'Store Yield value into datatable
+				F.Data.DataTable.SetValue("dtWO",V.Local.i2,"Yield",V.Local.fYield)
+			F.Intrinsic.Control.Next(V.Local.i2)
+			F.Data.DataTable.Compute("dtWO","AVG(Yield)","",V.Local.fAverage)
+			F.Intrinsic.Math.Round(V.Local.fAverage,2,V.Local.fAverage)
+			F.Intrinsic.String.Build("{0}*!*{1}*!*{1}*!*{2}*!**!**!**!**!**!*{3}*!*",V.Local.sPart,V.Local.sRev,V.DataTable.dtPart(V.Local.sRet(V.Local.i1)).Description!FieldValTrim,V.Local.fAverage,V.Local.sExcelFileRow)
+			F.Intrinsic.String.Build("{0}$!${1}",V.Local.sExcelFileRow,V.Local.sExcelFileDetail,V.Local.sExcelFileDetail)
+			F.Intrinsic.String.Build("{0}$!${1}",V.Local.sExcelFile,V.Local.sExcelFileDetail,V.Local.sExcelFile)
+			F.Data.DataTable.Close("dtWO")
+		F.Intrinsic.Control.Next(V.Local.i1)
+		F.Intrinsic.UI.ChangeWaitStatus("Writing data into Excel")
+		F.Automation.MSExcel.WriteSpreadsheet(V.Local.sFileName,V.Local.sExcelFile)
+		F.Intrinsic.UI.CloseWaitDialog
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+Program.Sub.cmdRefresh_Click.End
+
+Program.Sub.Comments.Start
+${$0$}$Production Yield Report$}$MHERTANTO$}$26/9/2017 3:19:22 PM$}$False
+${$3$}$0$}$$}$0$}$-1$}$$}$12:00:00 AM$}$This program was requested by PT Pudak Scientific which displays percentage of good pieces relative to total pieces per part number.
+Program.Sub.Comments.End
